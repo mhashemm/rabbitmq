@@ -1,9 +1,9 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
-	"os"
-	"strconv"
 	"time"
 
 	"github.com/streadway/amqp"
@@ -39,10 +39,13 @@ func main() {
 
 	stall := make(chan struct{})
 
-	seconds, _ := strconv.ParseInt(os.Args[1], 10, 64)
+	seconds := 15
 	go func() {
 		for msg := range msgs {
-			log.Println(string(msg.Body))
+			m := map[string]any{}
+			json.Unmarshal(msg.Body, &m)
+			// fmt.Println(m["number"], len(m["data"].(string)))
+			fmt.Println(m["number"])
 			time.Sleep(time.Second * time.Duration(seconds))
 			msg.Ack(false)
 		}

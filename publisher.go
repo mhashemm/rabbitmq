@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -55,12 +56,17 @@ func main() {
 
 	count := 0
 	notify := c.NotifyPublish(make(chan amqp.Confirmation))
-	for true {
+	for i := 0; i < 2000; i++ {
+		m := map[string]any{
+			"data":   make([]byte, 37*1024*1024),
+			"number": i,
+		}
+		body, _ := json.Marshal(m)
 		msg := amqp.Publishing{
 			DeliveryMode: amqp.Persistent,
 			Timestamp:    time.Now(),
 			ContentType:  "text/plain",
-			Body:         []byte(fmt.Sprintf("msg number: %d", count)),
+			Body:         body,
 		}
 		err = c.Publish("", q.Name, true, false, msg)
 		if err != nil {
