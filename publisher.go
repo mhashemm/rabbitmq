@@ -43,7 +43,8 @@ func main() {
 	c := _c.(*amqp.Channel)
 
 	defer p.Put(c)
-	q, err := c.QueueDeclare(
+	err = c.ExchangeDeclare("testbug", "topic", true, false, false, false, nil)
+	_, err = c.QueueDeclare(
 		"hello", // name
 		true,    // durable
 		false,   // delete when unused
@@ -62,7 +63,7 @@ func main() {
 			ContentType:  "text/plain",
 			Body:         []byte(fmt.Sprintf("msg number: %d", count)),
 		}
-		err = c.Publish("", q.Name, true, false, msg)
+		err = c.Publish("testbug", "yo-fucko", true, false, msg)
 		if err != nil {
 			log.Fatalf("basic.publish: %v", err)
 		}

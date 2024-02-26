@@ -2,8 +2,6 @@ package main
 
 import (
 	"log"
-	"os"
-	"strconv"
 	"time"
 
 	"github.com/streadway/amqp"
@@ -22,24 +20,27 @@ func main() {
 		log.Fatalf("channel.open: %s", err)
 	}
 
+	err = c.ExchangeDeclare("testbug", "topic", true, false, false, false, nil)
+
 	q, err := c.QueueDeclare("hello", true, false, false, false, nil)
 	if err != nil {
 		log.Fatalf("queue.declare: %v", err)
 	}
+	c.QueueBind(q.Name, "yo-fucko", "testbug", false, nil)
 
 	err = c.Qos(1, 0, false)
 	if err != nil {
 		log.Fatalf("basic.qos: %v", err)
 	}
 
-	msgs, err := c.Consume(q.Name, "", false, false, false, false, nil)
+	msgs, err := c.Consume(q.Name, "yo-fucko", false, false, false, false, nil)
 	if err != nil {
 		log.Fatalf("basic.consume: %v", err)
 	}
 
 	stall := make(chan struct{})
 
-	seconds, _ := strconv.ParseInt(os.Args[1], 10, 64)
+	seconds := 0
 	go func() {
 		for msg := range msgs {
 			log.Println(string(msg.Body))
