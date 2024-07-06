@@ -3,8 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
-	"math/rand"
-	"runtime"
+	"strconv"
 	"sync"
 	"time"
 
@@ -13,37 +12,14 @@ import (
 
 func main() {
 	// Connects opens an AMQP connection from the credentials in the URL.
-	conn, err := amqp.Dial("amqp://user:bitnami@localhost:5672/")
-	if err != nil {
-		log.Fatalf("connection.open: %s", err)
-	}
-
+	conn, _ := amqp.Dial("amqp://user:bitnami@localhost:5672/")
 	defer conn.Close()
 
-	// using pool here is wrong but it's so cool
-	// DO NOT USE IT YOU DUMBASS
-	p := sync.Pool{
-		New: func() any {
-			c, err := conn.Channel()
-			if err != nil {
-				return nil // no channel
-			}
-			// https://github.com/golang/go/issues/23216#issuecomment-353477328
-			runtime.SetFinalizer(c, (*amqp.Channel).Close)
-			return c
-		},
-	}
+	c, _ := conn.Channel()
+	defer c.Close()
+	_ = c.Confirm(false)
 
-	_c := p.Get()
-
-	if _c == nil {
-		log.Fatalf("channel.open: %s", err)
-	}
-
-	c := _c.(*amqp.Channel)
-
-	defer p.Put(c)
-	q, err := c.QueueDeclare(
+	q, _ := c.QueueDeclare(
 		"hello", // name
 		true,    // durable
 		false,   // delete when unused
@@ -51,27 +27,31 @@ func main() {
 		false,   // no-wait
 		nil,     // arguments
 	)
-	err = c.Confirm(false)
+	wg := sync.WaitGroup{}
 
-	count := 0
-	notify := c.NotifyPublish(make(chan amqp.Confirmation))
-	for true {
-		msg := amqp.Publishing{
-			DeliveryMode: amqp.Persistent,
-			Timestamp:    time.Now(),
-			ContentType:  "text/plain",
-			Body:         []byte(fmt.Sprintf("msg number: %d", count)),
-		}
-		err = c.Publish("", q.Name, true, false, msg)
-		if err != nil {
-			log.Fatalf("basic.publish: %v", err)
-		}
-		res := <-notify
-		if !res.Ack {
-			log.Fatalln(res)
-		}
-		log.Println(fmt.Sprintf("published: %d", count))
-		count += 1
-		time.Sleep(time.Second * time.Duration(rand.Int63n(3)))
+	for i := 0; i < 1e6; i++ {
+		wg.Add(1)
+		i := i
+		go func() {
+			defer wg.Done()
+			msg := amqp.Publishing{
+				DeliveryMode: amqp.Persistent,
+				Timestamp:    time.Now(),
+				ContentType:  "text/plain",
+				Body:         []byte(fmt.Sprintf("msg number: %d", i)),
+				MessageId:    strconv.Itoa(i),
+			}
+			confirm, err := c.PublishWithDeferredConfirm("", q.Name, true, false, msg)
+			if err != nil {
+				log.Fatalf("basic.publish: %v", err)
+			}
+			if confirm.Wait() {
+				log.Println(fmt.Sprintf("published: %d", i), confirm.DeliveryTag)
+			} else {
+				log.Fatal("suca", confirm.DeliveryTag)
+			}
+			// time.Sleep(time.Second * time.Duration(rand.Int63n(3)))
+		}()
 	}
+	wg.Wait()
 }
