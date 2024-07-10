@@ -1,9 +1,8 @@
 package main
 
 import (
+	"fmt"
 	"log"
-	"os"
-	"strconv"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -22,7 +21,9 @@ func main() {
 		log.Fatalf("channel.open: %s", err)
 	}
 
-	q, err := c.QueueDeclare("hello", true, false, false, false, nil)
+	q, err := c.QueueDeclare("hello", true, false, false, false, amqp.Table{
+		"x-consumer-timeout": 180000,
+	})
 	if err != nil {
 		log.Fatalf("queue.declare: %v", err)
 	}
@@ -37,16 +38,12 @@ func main() {
 		log.Fatalf("basic.consume: %v", err)
 	}
 
-	stall := make(chan struct{})
+	for msg := range msgs {
+		log.Println(string(msg.Body))
+		time.Sleep(time.Minute * 5)
+		msg.Ack(false)
+	}
 
-	seconds, _ := strconv.ParseInt(os.Args[1], 10, 64)
-	go func() {
-		for msg := range msgs {
-			log.Println(string(msg.Body))
-			time.Sleep(time.Second * time.Duration(seconds))
-			msg.Ack(false)
-		}
-		stall <- struct{}{}
-	}()
-	<-stall
+	fmt.Println(c.IsClosed())
+	fmt.Println(conn.IsClosed())
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"math/rand"
 	"runtime"
 	"sync"
 	"time"
@@ -49,13 +48,15 @@ func main() {
 		false,   // delete when unused
 		false,   // exclusive
 		false,   // no-wait
-		nil,     // arguments
+		amqp.Table{
+			"x-consumer-timeout": 180000,
+		}, // arguments
 	)
 	err = c.Confirm(false)
 
 	count := 0
 	notify := c.NotifyPublish(make(chan amqp.Confirmation))
-	for true {
+	for count <= 69 {
 		msg := amqp.Publishing{
 			DeliveryMode: amqp.Persistent,
 			Timestamp:    time.Now(),
@@ -72,6 +73,6 @@ func main() {
 		}
 		log.Println(fmt.Sprintf("published: %d", count))
 		count += 1
-		time.Sleep(time.Second * time.Duration(rand.Int63n(3)))
+		// time.Sleep(time.Second * time.Duration(rand.Int63n(3)))
 	}
 }
