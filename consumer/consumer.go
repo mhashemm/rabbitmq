@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -22,7 +21,7 @@ func main() {
 	}
 
 	q, err := c.QueueDeclare("hello", true, false, false, false, amqp.Table{
-		"x-consumer-timeout": 180000,
+		"x-single-active-consumer": true,
 	})
 	if err != nil {
 		log.Fatalf("queue.declare: %v", err)
@@ -40,7 +39,7 @@ func main() {
 
 	for msg := range msgs {
 		log.Println(string(msg.Body))
-		time.Sleep(time.Minute * 5)
+		// time.Sleep(time.Minute * 5)
 		msg.Ack(false)
 	}
 

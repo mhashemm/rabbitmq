@@ -42,16 +42,7 @@ func main() {
 	c := _c.(*amqp.Channel)
 
 	defer p.Put(c)
-	q, err := c.QueueDeclare(
-		"hello", // name
-		true,    // durable
-		false,   // delete when unused
-		false,   // exclusive
-		false,   // no-wait
-		amqp.Table{
-			"x-consumer-timeout": 180000,
-		}, // arguments
-	)
+
 	err = c.Confirm(false)
 
 	count := 0
@@ -63,7 +54,7 @@ func main() {
 			ContentType:  "text/plain",
 			Body:         []byte(fmt.Sprintf("msg number: %d", count)),
 		}
-		err = c.Publish("", q.Name, true, false, msg)
+		err = c.Publish("", "hello", true, false, msg)
 		if err != nil {
 			log.Fatalf("basic.publish: %v", err)
 		}
